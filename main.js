@@ -2,26 +2,33 @@ import {
   storyblokInit,
   apiPlugin,
   renderRichText,
-  useStoryblokBridge
+  useStoryblokBridge,
+  storyblokEditable
 } from "@storyblok/js"
 
 if (window) {
   const { StoryblokBridge } = window
-  console.log({ StoryblokBridge })
+
+  const bridge = new StoryblokBridge()
+  bridge.on(['published', 'change'], () => {
+    location.reload(true)
+  })
+  console.log({ bridge })
 }
 
-console.log("Hey!")
-
-function PopularArticle() {
-  return `<pre>Popular articles</pre>`
+function PopularArticle(blok) {
+  const editMarkers = storyblokEditable(blok)
+  return `<div class="blok" data-blok-c=${editMarkers["data-blok-c"]} data-blok-uid=${editMarkers["data-blok-uid"]}>${JSON.stringify(blok.articles, null, 2)}</div>`
 }
 
-function Feature() {
-  return `<pre>Features</pre>`
+function Feature(blok) {
+  const editMarkers = storyblokEditable(blok)
+  return `<div class="blok" data-blok-c=${editMarkers["data-blok-c"]} data-blok-uid=${editMarkers["data-blok-uid"]}>${blok.name}</div>`
 }
 
-function Text() {
-  return `<pre>Text</pre>`
+function Text(blok) {
+  const editMarkers = storyblokEditable(blok)
+  return `<div class="blok" data-blok-c=${editMarkers["data-blok-c"]} data-blok-uid=${editMarkers["data-blok-uid"]}>${renderRichText(blok.rich_text)}</div>`
 }
 
 const bloks = {
@@ -33,7 +40,7 @@ const bloks = {
 function assembleBloks(body) {
   let html = ""
   for (let i = 0; i < body.length; i++) {
-    html += bloks[body[i].component]()
+    html += bloks[body[i].component](body[i])
   }
   return html
 }
@@ -41,32 +48,26 @@ function assembleBloks(body) {
 async function init() {
 
   try {
-
-    // const bridge = new StoryblokBridge()
-    // bridge.on(['published', 'change'], () => {
-    //   location.reload(true)
-    // })
-
     const { storyblokApi } = storyblokInit({
       accessToken: "TVXPt5jM5QK82BUWLOlulgtt",
       use: [apiPlugin]
     })
 
-    const { data } = await storyblokApi.get("cdn/stories/home")
+    const { data } = await storyblokApi.get("cdn/stories/home",
+      { version: "draft" }
+    )
+    console.log({ data })
     const { story } = data
     const { id } = story
 
     const div = document.getElementById("app")
 
-    const html = JSON.stringify(story, null, 2)
-
-    div.innerHTML = assembleBloks(story.content.body)
-
-    const whatAmI = await useStoryblokBridge(id, story => {
-      console.log({ story })
-    })
-
-    console.log({ whatAmI })
+    div.innerHTML = `
+    ${story.content._editable}
+    <div class="content-type">
+    ${assembleBloks(story.content.body)}
+    </div>
+    `
 
   } catch (error) {
     console.log({ error })
